@@ -1,0 +1,56 @@
+# CodeMedic: watches your unattended projects' logs and, when something breaks, starts a headless
+# Claude Code session in that project to find the cause, fix it, test it, commit it and carry on with
+# what was stuck. Copy this file to config.toml (which git ignores) and describe your projects below.
+
+[codemedic]
+claude_bin = "claude"
+config_dir = ""                   # CLAUDE_CONFIG_DIR for the sessions ("" = your default Claude login)
+model = "opus"                    # debugging needs the strongest model
+effort = "high"
+timeout_minutes = 45              # one healing session at most
+max_budget_usd = 8                # per session (--max-budget-usd)
+max_sessions_per_day = 4          # all projects together
+max_sessions_per_project_per_day = 3
+max_heals_per_error_per_day = 2   # the same error back after two sessions: tell the author, stop trying
+mute_hours = 24                   # how long an error that needs the author stays quiet after the alert
+lock_wait_minutes = 20            # wait this long for the project's running tick to finish
+test_timeout_minutes = 15
+slack_user = ""                   # Slack member id for reports (e.g. "U012AB3CD"); "" = no Slack messages
+# Errors that usually clear up on their own. Healed only when seen this often within 24 hours.
+transient_threshold = 4
+transient = [
+  "can't reach the api", "enotfound", "eai_again", "econnrefused", "econnreset", "etimedout",
+  "getaddrinfo", "connection error", "error connecting to", "http 50[234]", "bad gateway", "gateway time-?out",
+  "temporarily unavailable", "rate limit", "too many requests", "usage limit", "hit your .*limit",
+  "timed? ?out", "offline", "another .* running",
+]
+
+# ---- projects ---------------------------------------------------------------------------
+# One table per project. Keys:
+#   dir        the project's git repository
+#   logs       log files, relative to dir, watched for new failure lines (only lines written after
+#              CodeMedic first saw the file)
+#   lock       the project's tick lock file (flock); CodeMedic holds it so the project's own scheduled
+#              runs wait while a session works. Omit it if the project has none.
+#   test       the command that runs the project's test suite; fixes that break it are reverted
+#   fail       regex (case-insensitive) for failure lines; Python tracebacks are always caught
+#   ignore     regexes for lines that look like failures but are normal outcomes
+#   sig_rewrite  [[pattern, replacement], ...] applied to signatures, to merge variants of one bug
+#   protected  files and folders (ending in /) the session must never edit: configuration, content
+#   push       push the session's commits once the tests pass (needs a remote)
+#   notes      what a session should know about the project: its commands, its data, its public actions
+# A project's Slack app token (SLACK_BOT_TOKEN in its .env) is used for its reports.
+
+[projects.my-app]
+name = "My App"
+dir = "~/my-app"
+logs = ["logs/app.log", "logs/launchd.err.log"]
+lock = "data/tick.lock"
+test = ".venv/bin/python -m pytest -q"
+fail = "\\berror\\b|\\bfailed\\b|traceback"
+ignore = ["not ready", "\\bwaiting\\b"]
+protected = ["config.toml", ".env", "content/"]
+push = true
+notes = """A daily job that publishes posts. data/app.db holds posts (status, url) and retry counters.
+To retry a post: reset its retry counter, then `.venv/bin/python -m app publish <id>`.
+Publishing is public: check the site before re-running a publish step."""

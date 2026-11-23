@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CodeMedic</title>
+<script>
+  // Same rule and storage key as the Forall Labs site, so a visitor's choice carries over.
+  // Light is the default; only an explicit stored choice switches to dark.
+  try {
+    var stored = localStorage.getItem("theme");
+    document.documentElement.setAttribute("data-theme", stored === "dark" ? "dark" : "light");
+  } catch (e) {
+    document.documentElement.setAttribute("data-theme", "light");
+  }
+</script>
+<meta name="description" content="CodeMedic watches unattended agents' logs and, when one breaks, sends a headless coding agent in to fix it, keeping the fix only if the project's tests still pass.">
+<meta name="theme-color" content="#faf9f5">
+<link rel="icon" href="static/favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Forall Labs">
+<meta property="og:title" content="CodeMedic: Self-Healing Coding Agents for Unattended LLM Pipelines">
+<meta property="og:description" content="32 healing sessions in two weeks: 5 fixes kept, none reverted, 24 transient failures left alone, at a median $0.46 per session.">
+<meta name="twitter:card" content="summary">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&display=swap">
+<style>
+/* Forall Labs design system (tokens, type, header and footer follow
+   forall-labs.github.io/styles.css), plus the data colors of the page's charts.
+   Layout: a research article. Serif reading text in a 680px column, figures and
+   interactive pieces break out to 1120px, one plain ground, citation in an appendix. */
+:root {
+  --bg:          #faf9f5;
+  --bg-sunk:     #f1efe7;
+  --bg-raised:   #ffffff;
+  --text:        #141413;
+  --text-soft:   #5e5d59;
+  --text-faint:  #918f89;
+  --line:        #e4e1d8;
+  --line-soft:   #edebe3;
+  --accent:      #3769ae;
+  --accent-deep: #2b5794;
+  --accent-wash: #ebeff5;
+  --accent-ink:  #ffffff;
+  --plate:       #ffffff;   /* figures are drawn on white, so their plates stay white */
+
+  /* API levels in the charts (Okabe-Ito) */
+  --c-s1: #a3a29d;
+  --c-s3: #0072b2;
+  --c-s4: #e69f00;
+
+  --wrap: 1200px;
+  --text-col: 680px;
+  --wide-col: 1120px;
+  --gutter: clamp(22px, 5vw, 48px);
+  --radius: 16px;
+  --radius-sm: 10px;
+
+  --t-title: clamp(3rem, 1.8rem + 4.6vw, 4.75rem);
+  --t-dek:   clamp(1.35rem, 1.1rem + 1vw, 1.8rem);
+  --t-h2:    clamp(1.75rem, 1.4rem + 1.3vw, 2.3rem);
+  --t-h3:    clamp(1.3rem, 1.15rem + .6vw, 1.55rem);
+  --t-prose: clamp(1.125rem, 1.07rem + .25vw, 1.25rem);
+  --t-lead:  clamp(1.14rem, 1.03rem + 0.5vw, 1.3rem);
+  --t-body:  1.0625rem;
+  --t-small: 0.9375rem;
+  --t-micro: 0.8125rem;
+
+  --s-1: 0.5rem;  --s-2: 0.875rem; --s-3: 1.375rem; --s-4: 2.25rem;
+  --s-5: 3.5rem;  --s-6: 5.5rem;
+
+  --serif: "Newsreader", ui-serif, Georgia, "Times New Roman", serif;
+  --sans:  "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --mono:  ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --bg:          #21201d;
+  --bg-sunk:     #1a1917;
+  --bg-raised:   #2a2926;
+  --text:        #f3f1ea;
+  --text-soft:   #b4b1a7;
+  --text-faint:  #8a8880;
+  --line:        #3a3834;
+  --line-soft:   #302e2b;
+  --accent:      #86a9e0;
+  --accent-deep: #a6c0ea;
+  --accent-wash: #222832;
+  --accent-ink:  #1a1917;
+  --plate:       #fbfaf6;
+  --c-s1: #8a8880; --c-s3: #56b4e9; --c-s4: #e9b44c;
+  color-scheme: dark;
+}
+
+/* --- Base --- */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: var(--sans); font-size: var(--t-body); line-height: 1.68;
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+}
+h1, h2, h3, h4 { font-family: var(--serif); font-weight: 400; line-height: 1.1; letter-spacing: -0.021em; margin: 0; text-wrap: balance; }
+h3 { font-family: var(--sans); font-size: var(--t-h3); font-weight: 600; letter-spacing: -0.012em; line-height: 1.35; }
+p { margin: 0 0 1.15em; }
+p:last-child { margin-bottom: 0; }
+a { color: inherit; text-decoration-thickness: 1px; text-decoration-color: color-mix(in srgb, currentColor 30%, transparent); text-underline-offset: 3px; }
+a:hover { text-decoration-color: currentColor; }
+img, svg { max-width: 100%; height: auto; display: block; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+::selection { background: var(--accent); color: var(--accent-ink); }
+code { font-family: var(--mono); font-size: 0.88em; }
+figure { margin: 0; }
+.skip { position: absolute; left: -9999px; top: 0; z-index: 100; background: var(--accent); color: var(--accent-ink); padding: 10px 16px; border-radius: 0 0 8px 0; }
+.skip:focus { left: 0; }
+.wrap { width: 100%; max-width: var(--wrap); margin-inline: auto; padding-inline: var(--gutter); }
+.label { font-size: var(--t-micro); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-faint); }
+
+/* --- Header (as on the Forall Labs site) --- */
+.site-header {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 50;
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: saturate(1.5) blur(14px); -webkit-backdrop-filter: saturate(1.5) blur(14px);
+  border-bottom: 1px solid var(--line-soft);
+}
+.header-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); min-height: 74px; }
+.brand { display: inline-flex; align-items: center; gap: 11px; text-decoration: none; }
+.brand .mark { width: 25px; height: 24px; flex: none; color: var(--text); }
+.brand .brand-name { font-family: var(--serif); font-size: 1.28rem; letter-spacing: -0.02em; }
+.header-tools { display: flex; align-items: center; gap: var(--s-1); }
+.nav { display: flex; align-items: center; gap: 2px; }
+.nav a { position: relative; padding: 8px 13px; border-radius: 8px; font-size: var(--t-small); font-weight: 500; color: var(--text-soft); text-decoration: none; white-space: nowrap; transition: color .15s, background-color .15s; }
+.nav a:hover { color: var(--text); background: var(--bg-sunk); }
+.nav a[aria-current="page"] { color: var(--text); font-weight: 600; }
+.nav a[aria-current="page"]::after { content: ""; position: absolute; left: 13px; right: 13px; bottom: 1px; height: 2px; border-radius: 2px; background: var(--accent); }
+.nav .nav-cta { margin-left: 10px; padding: 9px 17px; border-radius: 9px; background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.nav .nav-cta:hover { background: var(--accent-deep); color: var(--accent-ink); }
+.nav .nav-cta::after { display: none; }
+.theme-toggle { display: grid; place-items: center; width: 38px; height: 38px; padding: 0; border: 1px solid var(--line); border-radius: 9px; background: var(--bg-raised); color: var(--text-soft); cursor: pointer; transition: color .15s, border-color .15s; }
+.theme-toggle:hover { color: var(--text); border-color: var(--text-faint); }
+.theme-toggle svg { width: 17px; height: 17px; }
+.theme-toggle .i-sun { display: none; }
+:root[data-theme="dark"] .theme-toggle .i-moon { display: none; }
+:root[data-theme="dark"] .theme-toggle .i-sun { display: block; }
+.menu { display: none; }
+.menu > summary { list-style: none; cursor: pointer; display: grid; place-items: center; width: 38px; height: 38px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg-raised); }
+.menu > summary::-webkit-details-marker { display: none; }
+.menu > summary span, .menu > summary span::before, .menu > summary span::after { display: block; width: 16px; height: 1.5px; background: var(--text); border-radius: 2px; }
+.menu > summary span { position: relative; }
+.menu > summary span::before, .menu > summary span::after { content: ""; position: absolute; left: 0; }
+.menu > summary span::before { top: -5px; }
+.menu > summary span::after { top: 5px; }
+.menu[open] > summary span { background: transparent; }
+.menu[open] > summary span::before { top: 0; transform: rotate(45deg); }
+.menu[open] > summary span::after { top: 0; transform: rotate(-45deg); }
+.menu-panel { position: absolute; left: 0; right: 0; top: 100%; background: var(--bg-raised); border-bottom: 1px solid var(--line); padding: var(--s-2) 0 var(--s-3); }
+.menu-panel .nav { flex-direction: column; align-items: stretch; gap: 0; }
+.menu-panel .nav a { padding: 13px var(--gutter); border-radius: 0; font-size: 1.05rem; }
+.menu-panel .nav a[aria-current="page"]::after { left: var(--gutter); right: auto; width: 18px; bottom: 7px; }
+.menu-panel .nav .nav-cta { margin: var(--s-2) var(--gutter) 0; border-radius: 9px; text-align: center; justify-content: center; }
+@media (max-width: 900px) { .header-tools > .nav { display: none; } .menu { display: block; } }
+
+/* --- Buttons --- */
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 17px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg-raised); color: var(--text); font: inherit; font-size: var(--t-small); font-weight: 600; line-height: 1.4; text-decoration: none; cursor: pointer; transition: background-color .15s, border-color .15s, color .15s; }
+.btn:hover { border-color: var(--text-faint); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { background: var(--accent-deep); border-color: var(--accent-deep); }
+.btn svg { width: 1.05em; height: 1.05em; flex: none; }
+.btn[aria-disabled="true"] { opacity: .45; cursor: not-allowed; pointer-events: none; }
+.btn[aria-disabled="true"] em { font-style: normal; font-weight: 500; color: var(--text-soft); }
+.btn.small { padding: 7px 13px; font-size: var(--t-micro); }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+
+/* --- Article frame: every block sits in the reading column unless marked .wide --- */
+.article { padding-inline: var(--gutter); padding-block: var(--s-5) var(--s-6); }
+.article > * { max-width: var(--text-col); margin-inline: auto; margin-block: 0; }
+.article > .wide { max-width: var(--wide-col); }
+.article > * + * { margin-top: var(--s-3); }
+.article > .wide, .article > .wide + * { margin-top: var(--s-5); }
+.article > h2.sec { margin-top: var(--s-6); }
+.article > h3.sub { margin-top: var(--s-5); }
+.article > h2 + *, .article > h3 + * { margin-top: var(--s-2); }
+.article > h3 + .wide { margin-top: var(--s-3); }
+
+.article > p { font-family: var(--serif); font-size: var(--t-prose); line-height: 1.62; letter-spacing: -0.003em; }
+.article > p strong { font-weight: 600; }
+h2.sec { font-size: var(--t-h2); scroll-margin-top: 96px; }
+h3.sub { font-family: var(--serif); font-weight: 500; font-size: var(--t-h3); letter-spacing: -0.015em; line-height: 1.25; }
+[id] { scroll-margin-top: 96px; }
+
+/* --- Article head --- */
+.article-head { display: grid; gap: var(--s-3); }
+.kicker { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .7rem; font-size: var(--t-micro); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-faint); margin: 0; }
+.kicker a { color: var(--accent); text-decoration: none; }
+.kicker a:hover { text-decoration: underline; }
+.kicker .dot { width: 3px; height: 3px; border-radius: 50%; background: currentColor; }
+.title-block { display: grid; gap: var(--s-1); }
+.title-block h1 { font-size: var(--t-title); letter-spacing: -0.035em; line-height: 1; }
+.dek { font-family: var(--serif); font-size: var(--t-dek); line-height: 1.22; letter-spacing: -0.015em; color: var(--text-soft); margin: 0; max-width: 30ch; }
+.standfirst { font-size: var(--t-lead); line-height: 1.55; color: var(--text-soft); margin: 0; }
+.byline { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr); gap: var(--s-2) var(--s-3); border-block: 1px solid var(--line); padding-block: var(--s-2); margin: 0; }
+@media (max-width: 600px) { .byline { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .byline > div:first-child { grid-column: 1 / -1; } }
+.byline dt { margin-bottom: .2rem; }
+.byline dd { margin: 0; font-size: var(--t-small); line-height: 1.5; }
+.byline sup { color: var(--accent); font-weight: 600; margin-left: 1px; }
+.byline .soft { color: var(--text-soft); }
+.article-head .actions { gap: 8px; }
+.article-head .actions .btn { padding: 8px 13px; font-size: .9rem; }
+
+/* --- Figures --- */
+.fig > figcaption { font-size: var(--t-small); line-height: 1.6; color: var(--text-soft); margin-top: var(--s-2); max-width: 80ch; }
+.fig > figcaption.above { margin: 0 0 var(--s-2); }
+.fig > figcaption b { color: var(--text); font-weight: 600; }
+.fig-n { color: var(--text); font-weight: 600; margin-right: .3em; }
+.plate { margin: 0; background: var(--plate); border: 1px solid var(--line); border-radius: var(--radius); padding: clamp(.75rem, 2vw, 1.5rem); }
+.plate img { margin-inline: auto; }
+
+/* --- Key numbers --- */
+.findings { display: grid; gap: var(--s-3); grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1040px) { .findings { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .findings { grid-template-columns: minmax(0, 1fr); } }
+.finding { border-top: 2px solid var(--text); padding-top: var(--s-2); min-width: 0; display: grid; align-content: start; gap: var(--s-1); }
+.finding .big { font-family: var(--serif); font-size: clamp(2.4rem, 1.9rem + 1.8vw, 3.1rem); line-height: 1; letter-spacing: -0.03em; color: var(--accent); font-variant-numeric: tabular-nums; }
+.finding p { color: var(--text-soft); font-size: var(--t-small); line-height: 1.55; margin: 0; }
+.finding .src { font-size: var(--t-micro); color: var(--text-faint); }
+
+/* --- Method steps (the numbered pattern of the Forall Labs site) --- */
+.steps { display: grid; gap: var(--s-4); grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 0; list-style: none; }
+@media (max-width: 900px) { .steps { grid-template-columns: minmax(0, 1fr); } }
+.step { padding-top: var(--s-2); border-top: 1px solid var(--line); min-width: 0; }
+.step .num { font-family: var(--mono); font-size: var(--t-micro); font-weight: 500; color: var(--accent); letter-spacing: .08em; display: block; margin-bottom: var(--s-1); }
+.step h3 { font-size: 1.12rem; margin-bottom: var(--s-1); }
+.step p { color: var(--text-soft); font-size: var(--t-small); }
+
+/* --- Results table --- */
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-raised); }
+table { border-collapse: collapse; width: 100%; min-width: 660px; font-size: var(--t-small); }
+th, td { padding: .8rem 1rem; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+th:first-child, td:first-child { text-align: left; }
+thead th { font-size: var(--t-micro); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); border-bottom: 1px solid var(--line); vertical-align: bottom; }
+tbody td { border-bottom: 1px solid var(--line-soft); font-family: var(--mono); font-size: .88rem; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody td:first-child { font-family: var(--sans); font-size: var(--t-small); font-weight: 600; }
+tr.ours td { background: var(--accent-wash); }
+tr.ours td:first-child { color: var(--accent-deep); }
+tr.ref td:first-child { font-style: italic; font-weight: 500; }
+.swatch { display: inline-block; width: .7em; height: .7em; border-radius: 50%; margin-right: .55em; vertical-align: .02em; }
+
+/* --- Gallery --- */
+.thumbs { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 760px) { .thumbs { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.thumb { appearance: none; padding: 0; border: 2px solid transparent; border-radius: var(--radius-sm); overflow: hidden; cursor: pointer; background: var(--plate); aspect-ratio: 1; transition: border-color .15s; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; }
+.thumb[aria-pressed="true"], .thumb:hover { border-color: var(--accent); }
+.compare { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-top: var(--s-3); }
+@media (max-width: 900px) { .compare { grid-template-columns: repeat(2, minmax(0, 1fr)); } .compare .cell:first-child { grid-column: 1 / -1; } }
+.cell { margin: 0; min-width: 0; }
+.cell .img { border-radius: var(--radius-sm); overflow: hidden; background: var(--plate); aspect-ratio: 4 / 3; border: 2px solid transparent; }
+.cell .img img { width: 100%; height: 100%; object-fit: cover; }
+.cell.ours .img { border-color: var(--accent); }
+.cell figcaption { margin-top: .5rem; display: flex; justify-content: space-between; gap: .5rem; font-size: var(--t-micro); color: var(--text-soft); }
+.cell figcaption b { font-family: var(--mono); font-weight: 500; color: var(--text); }
+.cell.ours figcaption b, .cell.ours figcaption span { color: var(--accent-deep); font-weight: 600; }
+
+/* --- Appendix: citation and resources, set smaller as at the end of a paper --- */
+.appendix { border-top: 1px solid var(--line); padding: var(--s-5) var(--gutter) var(--s-6); }
+.appendix-inner { max-width: var(--wide-col); margin-inline: auto; display: grid; gap: var(--s-4); }
+.app-row { display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 1fr); gap: var(--s-1) var(--s-4); }
+@media (max-width: 760px) { .app-row { grid-template-columns: minmax(0, 1fr); } }
+.app-row h2 { font-family: var(--sans); font-size: var(--t-micro); font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--text-faint); line-height: 1.6; padding-top: .15rem; }
+.app-row > div { min-width: 0; font-size: var(--t-small); color: var(--text-soft); }
+.app-row a { color: var(--text); }
+.bib { position: relative; margin-top: var(--s-2); }
+.bib pre { margin: 0; overflow-x: auto; padding: var(--s-3); border-radius: var(--radius-sm); background: var(--bg-raised); border: 1px solid var(--line); font: .84rem/1.65 var(--mono); color: var(--text); }
+.bib .btn { position: absolute; top: .65rem; right: .65rem; }
+
+/* --- Footer (as on the Forall Labs site) --- */
+.site-footer { background: var(--bg-sunk); border-top: 1px solid var(--line); }
+.footer-grid { display: grid; gap: var(--s-4); grid-template-columns: minmax(0, 1.7fr) repeat(2, minmax(0, 1fr)); padding-block: var(--s-5) var(--s-4); }
+@media (max-width: 860px) { .footer-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 520px) { .footer-grid { grid-template-columns: 1fr; } }
+.footer-grid h4 { font-family: var(--sans); font-size: var(--t-micro); font-weight: 600; letter-spacing: .09em; text-transform: uppercase; color: var(--text-faint); margin-bottom: var(--s-3); }
+.footer-grid ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 11px; }
+.footer-grid a { font-size: var(--t-small); color: var(--text-soft); text-decoration: none; }
+.footer-grid a:hover { color: var(--accent); }
+.footer-about p { font-size: var(--t-small); color: var(--text-soft); max-width: 40ch; margin-top: var(--s-3); }
+.footer-bottom { border-top: 1px solid var(--line); padding-block: var(--s-3); display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-3); justify-content: space-between; font-size: var(--t-micro); color: var(--text-faint); }
+.footer-bottom p { margin: 0; }
+
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { transition-duration: .01ms !important; } }
+
+/* --- Outcomes (Okabe-Ito, as in the other Forall Labs pages) --- */
+:root { --o-fixed: #009e73; --o-retried: #0072b2; --o-transient: #a3a29d; --o-author: #e69f00; --o-gaveup: #d55e00; }
+:root[data-theme="dark"] { --o-fixed: #3fc79a; --o-retried: #56b4e9; --o-transient: #8a8880; --o-author: #f0b84a; --o-gaveup: #f08a4b; }
+.o-fixed { --c: var(--o-fixed); } .o-retried { --c: var(--o-retried); } .o-transient { --c: var(--o-transient); }
+.o-author { --c: var(--o-author); } .o-gaveup { --c: var(--o-gaveup); }
+.step code, .article > p code, td code { font-size: .85em; background: var(--bg-sunk); padding: .08em .35em; border-radius: 5px; }
+
+/* --- Hero: one real session, condensed from its report --- */
+.session-card { background: var(--bg-raised); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 30px 60px -40px color-mix(in srgb, var(--text) 45%, transparent); overflow: hidden; }
+.cc-head { display: flex; align-items: center; gap: .6rem; padding: .7rem 1rem; border-bottom: 1px solid var(--line-soft); background: var(--bg-sunk); font-size: var(--t-micro); color: var(--text-soft); }
+.cc-file { font-family: var(--mono); color: var(--text); font-weight: 500; }
+.cc-meta { margin-left: auto; font-variant-numeric: tabular-nums; }
+.incident { margin: 0; padding: .9rem 1rem; border-bottom: 1px solid var(--line-soft); font: 400 .8125rem/1.6 var(--mono); color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; }
+.incident b { color: var(--o-gaveup); font-weight: 600; }
+.timeline { list-style: none; margin: 0; padding: .75rem 1rem 1rem; display: grid; gap: 0; }
+.timeline li { position: relative; display: grid; grid-template-columns: 7.2rem minmax(0, 1fr); gap: .75rem; padding: .55rem 0 .55rem 1.4rem; font-size: var(--t-small); line-height: 1.5; color: var(--text-soft); }
+.timeline li::before { content: ""; position: absolute; left: .3rem; top: .95rem; width: 9px; height: 9px; border-radius: 50%; background: var(--c, var(--text-faint)); }
+.timeline li::after { content: ""; position: absolute; left: calc(.3rem + 4px); top: 1.6rem; bottom: -.4rem; width: 1px; background: var(--line); }
+.timeline li:last-child::after { display: none; }
+.timeline .t-k { font-weight: 600; color: var(--text); }
+.timeline code { font-size: .82em; background: var(--bg-sunk); padding: .05em .3em; border-radius: 4px; }
+.timeline .ok { color: var(--o-fixed); font-weight: 600; }
+@media (max-width: 520px) { .timeline li { grid-template-columns: minmax(0, 1fr); gap: .1rem; } }
+@media (prefers-reduced-motion: no-preference) {
+  .timeline li { animation: fl-rise .6s var(--ease-out, ease) both; }
+  .timeline li:nth-child(1) { animation-delay: .5s; } .timeline li:nth-child(2) { animation-delay: .8s; }
+  .timeline li:nth-child(3) { animation-delay: 1.1s; } .timeline li:nth-child(4) { animation-delay: 1.4s; }
+  .timeline li:nth-child(5) { animation-delay: 1.7s; } .timeline li:nth-child(6) { animation-delay: 2s; }
+}
+
+/* --- Outcome bar (Figure 1) --- */
+.outcome-bar { display: flex; height: 44px; border-radius: 10px; overflow: hidden; gap: 2px; }
+.outcome-bar span { flex: var(--n) 1 0; background: var(--c); min-width: 6px; }
+.outcome-legend { list-style: none; margin: var(--s-3) 0 0; padding: 0; display: grid; gap: .55rem; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); font-size: var(--t-small); color: var(--text-soft); }
+.outcome-legend li { display: flex; gap: .55rem; align-items: baseline; }
+.outcome-legend i { width: 11px; height: 11px; border-radius: 3px; background: var(--c); flex: none; transform: translateY(1px); }
+.outcome-legend b { font-family: var(--mono); color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.guard-table td:first-child { white-space: normal; min-width: 16rem; font-weight: 500; }
+.guard-table table { min-width: 640px; }
+td.wrap-cell { white-space: normal; text-align: left; font-family: var(--sans); font-size: var(--t-small); min-width: 22rem; }
+
+</style>
+<link rel="stylesheet" href="static/fl-page.css">
+</head>
+<body>
+<!-- The ∀L mark of Forall Labs (from forall-labs.github.io/site/base.html). -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="fl-mark" viewBox="2.77 14 75.46 72"><clipPath id="fl-mark-clip"><rect x="0" y="14" width="100" height="72"/></clipPath><g clip-path="url(#fl-mark-clip)" fill="none" stroke="currentColor" stroke-width="10" stroke-miterlimit="10" stroke-linejoin="miter"><path d="M7.39 12L30 86L52.61 12M18.08 47L41.92 47"/><path d="M73.61 12L52.53 81L78.23 81"/></g></symbol></svg>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap header-row">
+    <a class="brand" href="https://forall-labs.github.io/" aria-label="Forall Labs home">
+      <svg class="mark" aria-hidden="true"><use href="#fl-mark"/></svg>
+      <span class="brand-name">Forall Labs</span>
+    </a>
+    <div class="header-tools">
+      <nav class="nav" aria-label="Main">
+        <a href="https://forall-labs.github.io/research/">Research</a>
+        <a href="https://forall-labs.github.io/projects/" aria-current="page">Projects</a>
+        <a href="https://forall-labs.github.io/people/">People</a>
+        <a href="https://forall-labs.github.io/news/">News</a>
+        <a href="https://forall-labs.github.io/about/">About</a>
+        <a class="nav-cta" href="https://forall-labs.github.io/join/">Join us</a>
+      </nav>
+      <button class="theme-toggle" type="button" id="theme-toggle" aria-label="Switch to dark theme">
+        <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 1.8v2.4M12 19.8v2.4M4.0 4.0l1.7 1.7M18.3 18.3l1.7 1.7M1.8 12h2.4M19.8 12h2.4M4.0 20.0l1.7-1.7M18.3 5.7l1.7-1.7"/></svg>
+      </button>
+      <details class="menu">
+        <summary aria-label="Menu"><span></span></summary>
+        <div class="menu-panel">
+          <nav class="nav" aria-label="Main, mobile">
+            <a href="https://forall-labs.github.io/research/">Research</a>
+            <a href="https://forall-labs.github.io/projects/" aria-current="page">Projects</a>
+            <a href="https://forall-labs.github.io/people/">People</a>
+            <a href="https://forall-labs.github.io/news/">News</a>
+            <a href="https://forall-labs.github.io/about/">About</a>
+            <a class="nav-cta" href="https://forall-labs.github.io/join/">Join us</a>
+          </nav>
+        </div>
+      </details>
+    </div>
+  </div>
+</header>
+
+
+<main id="main">
+<article class="article">
+  <header class="article-head hero" data-enter>
+    <p class="kicker"><a href="https://forall-labs.github.io/projects/">Projects</a><span class="dot" aria-hidden="true"></span><span>Coding agents</span><span class="dot" aria-hidden="true"></span><span>Reliability</span></p>
+    <div class="title-block">
+      <h1>CodeMedic</h1>
+      <p class="dek">Self-healing coding agents for unattended LLM pipelines</p>
+    </div>
+    <p class="standfirst">When a scheduled job breaks and nobody is watching, CodeMedic reads the failure from its logs, sends a headless coding agent into the project to find the cause and fix it, and keeps the fix only if the project's own tests still pass.</p>
+    <dl class="byline">
+      <div><dt class="label">Author</dt><dd>Sajjad Pakdamansavoji</dd></div>
+      <div><dt class="label">Affiliation</dt><dd>Forall Labs</dd></div>
+      <div><dt class="label">Released</dt><dd>November 2026</dd></div>
+    </dl>
+    <div class="actions">
+      <a class="btn primary" href="https://github.com/forall-labs/CodeMedic">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m8 7-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></svg>
+        Code</a>
+      <a class="btn" href="#method">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/></svg>
+        How it works</a>
+      <a class="btn" href="#citation">BibTeX</a>
+    </div>
+    <!-- A real session (20 November 2026), condensed from its report. The incident line is the logged one, trimmed (draft URL removed). -->
+    <figure class="hero-visual session-card" aria-label="A real CodeMedic session: a publishing step failed because an editor changed a hyphen in a title to an en dash; the session fixed the comparison, added a test, and the post went live">
+      <div class="cc-head"><span class="cc-file">publish.log</span><span class="cc-meta">5 min · $0.74</span></div>
+      <p class="incident">#102 medium publish <b>error</b>: Medium did not keep the whole story: {"status": "incomplete", &hellip;}</p>
+      <ol class="timeline">
+        <li><span class="t-k">Tests before</span><span>The project's suite passes, so a regression would be the session's.</span></li>
+        <li class="o-author"><span class="t-k">Cause</span><span>The blog's editor rewrote "Qwen3.5-4B" with an en dash, and the title check only folded curly quotes.</span></li>
+        <li class="o-retried"><span class="t-k">Fix</span><span><code>norm()</code> now folds en and em dashes in both browser scripts; a new test fails on the old code.</span></li>
+        <li class="o-fixed"><span class="t-k">Tests after</span><span><span class="ok">67 passed</span>, so CodeMedic pushed the commit.</span></li>
+        <li class="o-fixed"><span class="t-k">Carried on</span><span>Re-ran the stuck publish step: the post went live.</span></li>
+        <li><span class="t-k">Told the author</span><span>One Slack message: cause, fix, and <code>git revert 9edcc2b</code> to undo.</span></li>
+      </ol>
+    </figure>
+  </header>
+
+  <nav class="toc" aria-label="On this page">
+    <div class="toc-inner">
+      <span class="toc-name">CodeMedic</span>
+      <a href="#method">How it works</a>
+      <a href="#guard">Guard rails</a>
+      <a href="#use">Two weeks</a>
+      <a href="#limits">Limits</a>
+      <a class="toc-cite" href="#citation">Cite</a>
+    </div>
+  </nav>
+
+  <p id="abstract">Agents that run on a schedule fail in ways their authors can't watch for: a site changes its markup, an API changes its shape, a network drop leaves work half done. Usually the fix is small, and the cost is the hours before anyone notices. <strong>CodeMedic</strong> is an on-call engineer for those agents. It watches their logs, turns new failures into incidents, and starts a headless <a href="https://docs.anthropic.com/en/docs/claude-code">Claude Code</a> session inside the failing project with the incident, the project's state and a strict set of rules.</p>
+  <p>The session decides whether the failure is transient, a bug, or something only the author can fix. For a bug, it fixes the root cause, adds a test, commits, and re-runs the step that was stuck. CodeMedic then checks the work itself: it re-runs the tests, reverts the session's commits if they broke anything, and otherwise pushes them and sends the author one message with a one-line undo.</p>
+
+  <div class="wide findings" role="list" aria-label="Key numbers">
+    <div class="finding" role="listitem"><span class="big">32</span><p>healing sessions in 15 days on four unattended agents: a publishing pipeline, an open-source PR agent, an awesome-list maintainer and a daily digest.</p><span class="src">8 to 23 November 2026</span></div>
+    <div class="finding" role="listitem"><span class="big">5 fixes</span><p>committed and kept. CodeMedic re-ran the tests after each one, and none had to be reverted.</p><span class="src">Each fix's tests run by CodeMedic</span></div>
+    <div class="finding" role="listitem"><span class="big">24</span><p>sessions found a transient cause, mostly network outages, and changed no code.</p><span class="src">Outcome "transient"</span></div>
+    <div class="finding" role="listitem"><span class="big">$0.46</span><p>median cost per session, with a median run of 71 seconds. Every session has an $8 budget and a 45-minute limit.</p><span class="src">Claude Opus, high effort</span></div>
+  </div>
+
+  <h2 class="sec" id="method">How CodeMedic works</h2>
+  <p>CodeMedic runs every ten minutes and does at most one session per run. Everything it needs from a project is in a few lines of configuration: its repository, its logs, its test command, its lock file, the files a session must never touch, and a note on what the project does.</p>
+
+  <ol class="wide steps">
+    <li class="step"><span class="num">Step 01</span><h3>Watch</h3><p>Read only what each log gained since the last look. Failure lines and Python tracebacks become incidents, keyed by a signature with ids, numbers, URLs and paths removed, so one bug on many items is one incident. Errors that usually clear up on their own wait until they repeat.</p></li>
+    <li class="step"><span class="num">Step 02</span><h3>Heal</h3><p>Take the project's tick lock so its own runs wait, run its tests, and start <code>claude -p</code> in the project with a guard hook and a budget. The session classifies the failure, fixes the root cause with the smallest change, adds a test, commits explicit paths and re-runs the stuck step.</p></li>
+    <li class="step"><span class="num">Step 03</span><h3>Verify</h3><p>Re-run the tests. If the session's commits broke tests that passed before, revert them; otherwise push. Send one Slack message with the cause, the fix and the <code>git revert</code> line, and keep the prompt, transcript and report in the run directory.</p></li>
+  </ol>
+
+  <h2 class="sec" id="guard">Guard rails</h2>
+  <p>A session runs with nobody watching, so its limits are enforced in code, not only asked for. A Claude Code <code>PreToolUse</code> hook checks every tool call before it runs and denies the ones below, whatever the session was told by the logs, a web page or its own reasoning.</p>
+
+  <figure class="wide fig">
+    <figcaption class="above"><span class="fig-n">Table 1.</span>What the guard blocks in a healing session, and why. The instructions add the rules that code can't check: public actions only by re-running the project's own step after checking it did not already go out, and never changing caps, schedules or who gets contacted.</figcaption>
+    <div class="table-wrap guard-table" role="region" aria-label="What the guard blocks" tabindex="0">
+      <table>
+        <thead><tr><th>Blocked</th><th style="text-align:left">Why</th></tr></thead>
+        <tbody>
+          <tr><td><code>git push</code>, reset, checkout, stash, rebase, <code>add -A</code>, <code>--amend</code></td><td class="wrap-cell">CodeMedic pushes only after its own test run, and the author's uncommitted work stays untouched.</td></tr>
+          <tr><td>Edits outside the project, to protected files, or to files with uncommitted changes</td><td class="wrap-cell">Configuration, content and work in progress are the author's; the session describes the change they need instead.</td></tr>
+          <tr><td><code>.env</code>, Claude logins, SSH and cloud credentials, the keychain</td><td class="wrap-cell">Secrets are never read, let alone changed.</td></tr>
+          <tr><td><code>gh</code>, non-GET HTTP requests, MCP tools</td><td class="wrap-cell">Nothing public happens outside the project's own commands.</td></tr>
+          <tr><td>Installing packages, <code>sudo</code>, <code>launchctl</code>, system settings</td><td class="wrap-cell">A fix that needs a new dependency or a system change goes to the author.</td></tr>
+          <tr><td>Deleting files outside the run directory, deleting database rows</td><td class="wrap-cell">Data, logs and past runs are evidence; scratch files live in the run directory.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </figure>
+
+  <p>Limits bound the cost of a bad day: two sessions per error per day, after which the error is muted for a day and the author is alerted, three sessions per project and four in all. A session that loses its connection, or hits the usage limit, is deferred and tried again rather than counted as a failure.</p>
+
+  <h2 class="sec" id="use">Two weeks in use</h2>
+  <p>From 8 to 23 November 2026, CodeMedic watched four of the author's unattended agents. The five fixes were the kind of change the outside world forces on a scraper or a publisher: a reply form that moved behind a collapsed thread, a comment lookup that dropped underscores and asterisks from text like <code>IQ2_XXS</code>, an editor that changed a hyphen to a dash, and a GitHub call whose timeout crashed a run during a network drop.</p>
+
+  <figure class="wide fig" aria-labelledby="out-cap">
+    <div class="chart-card">
+      <div class="outcome-bar" role="img" aria-label="Outcomes of 32 sessions: 5 fixed, 1 got stuck work going again, 24 transient, 1 needed the author, 1 gave up">
+        <span class="o-fixed" style="--n:5"></span><span class="o-retried" style="--n:1"></span><span class="o-transient" style="--n:24"></span><span class="o-author" style="--n:1"></span><span class="o-gaveup" style="--n:1"></span>
+      </div>
+      <ul class="outcome-legend">
+        <li class="o-fixed"><i></i><span><b>5</b> fixed: a code change, tested and kept</span></li>
+        <li class="o-retried"><i></i><span><b>1</b> got stuck work through without a code change</span></li>
+        <li class="o-transient"><i></i><span><b>24</b> transient: no code changed</span></li>
+        <li class="o-author"><i></i><span><b>1</b> needed the author: the fix was in a file they were editing</span></li>
+        <li class="o-gaveup"><i></i><span><b>1</b> gave up: the API went offline mid-session</span></li>
+      </ul>
+    </div>
+    <figcaption id="out-cap"><span class="fig-n">Figure 1.</span>Outcomes of the 32 sessions. Not counted: 44 launches deferred before any work, 42 because the machine was offline and 2 at the usage limit. The one session that gave up predates the rule that defers offline sessions instead.</figcaption>
+  </figure>
+
+  <h2 class="sec" id="limits">Limits</h2>
+  <p><strong>The tests are the gate.</strong> CodeMedic keeps a fix when the project's tests pass, so a project with weak tests gets a weak check. Sessions are told to add a test with every fix, which strengthens the gate over time but does not replace review: every fix arrives with its undo line for that reason.</p>
+  <p><strong>The guard is defense in depth, not a sandbox.</strong> It matches commands and paths with rules, and a determined process could get around them. Run CodeMedic only on projects you own, under an account with no more access than those projects need.</p>
+  <p><strong>One machine, one author.</strong> These numbers come from one author's four projects over two weeks, not from a benchmark. CodeMedic is built for a person's unattended automations, with a launchd job on macOS and cron elsewhere, not to replace a team's on-call rotation.</p>
+</article>
+
+<section class="appendix" id="citation" aria-label="Citation and resources">
+  <div class="appendix-inner">
+    <div class="app-row">
+      <h2>Citation</h2>
+      <div>
+        <p>Please cite this work as</p>
+        <div class="bib">
+          <button class="btn small" id="copy-bib" type="button">Copy</button>
+          <pre id="bibtex">@misc{pakdamansavoji2026codemedic,
+  title        = {CodeMedic: Self-Healing Coding Agents for Unattended LLM Pipelines},
+  author       = {Pakdamansavoji, Sajjad},
+  year         = {2026},
+  howpublished = {\url{https://github.com/forall-labs/CodeMedic}}
+}</pre>
+        </div>
+      </div>
+    </div>
+    <div class="app-row">
+      <h2>Running it</h2>
+      <div><p>Clone the <a href="https://github.com/forall-labs/CodeMedic">GitHub repository</a>, copy <code>config.example.toml</code> to <code>config.toml</code> and describe your projects, then try <code>python3 -m codemedic tick --dry-run</code>. It needs Python 3.11+, git and the Claude Code CLI. The test suite runs heal end to end against a fake agent and a local git remote.</p></div>
+    </div>
+    <div class="app-row">
+      <h2>Built on</h2>
+      <div><p><a href="https://docs.anthropic.com/en/docs/claude-code">Claude Code</a> in headless mode, with its hooks doing the guarding.</p></div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="footer-grid">
+      <div class="footer-about">
+        <a class="brand" href="https://forall-labs.github.io/" aria-label="Forall Labs home">
+          <svg class="mark" aria-hidden="true"><use href="#fl-mark"/></svg>
+          <span class="brand-name">Forall Labs</span>
+        </a>
+        <p>CodeMedic is a Forall Labs project, built on Claude Code.</p>
+      </div>
+      <div>
+        <h4>CodeMedic</h4>
+        <ul>
+          <li><a href="https://github.com/forall-labs/CodeMedic">Code</a></li>
+          <li><a href="#method">How it works</a></li>
+          <li><a href="#citation">Cite</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Forall Labs</h4>
+        <ul>
+          <li><a href="https://forall-labs.github.io/research/">Research</a></li>
+          <li><a href="https://forall-labs.github.io/projects/">Projects</a></li>
+          <li><a href="https://github.com/forall-labs">GitHub</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>Code under the MIT License. Healing sessions run on Claude Code.</p>
+      <p>&forall; is the mathematical symbol for &ldquo;for all&rdquo;.</p>
+    </div>
+  </div>
+</footer>
+
+<script src="static/fl-page.js"></script>
+<script>
+(() => {
+  const $ = (s) => document.querySelector(s);
+  // theme (same behavior and storage key as the Forall Labs site)
+  const root = document.documentElement, toggle = $("#theme-toggle");
+  const label = () => toggle.setAttribute("aria-label",
+    root.getAttribute("data-theme") === "dark" ? "Switch to light theme" : "Switch to dark theme");
+  label();
+  toggle.addEventListener("click", () => {
+    const next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    try { localStorage.setItem("theme", next); } catch (e) {}
+    label();
+  });
+  $("#copy-bib").addEventListener("click", async () => {
+    const btn = $("#copy-bib"), text = $("#bibtex").textContent;
+    try { await navigator.clipboard.writeText(text); btn.textContent = "Copied"; }
+    catch {
+      const range = document.createRange(); range.selectNodeContents($("#bibtex"));
+      const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+      btn.textContent = "Selected, press Ctrl+C";
+    }
+    setTimeout(() => { btn.textContent = "Copy"; }, 2000);
+  });
+})();
+</script>
+</body>
+</html>

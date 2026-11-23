@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use CodeMedic, please cite it as below."
+title: "CodeMedic: Self-Healing Coding Agents for Unattended LLM Pipelines"
+authors:
+  - family-names: Pakdamansavoji
+    given-names: Sajjad
+year: 2026
+url: "https://forall-labs.github.io/CodeMedic/"
+repository-code: "https://github.com/forall-labs/CodeMedic"
+license: MIT

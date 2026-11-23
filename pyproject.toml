@@ -1,0 +1,12 @@
+[project]
+name = "codemedic"
+version = "0.1.0"
+description = "CodeMedic: when an unattended job fails, a headless coding agent fixes it, and the fix is kept only if the tests pass."
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+codemedic = "codemedic.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["codemedic*"]
